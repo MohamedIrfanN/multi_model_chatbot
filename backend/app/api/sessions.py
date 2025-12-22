@@ -1,3 +1,4 @@
+import base64
 from fastapi import APIRouter, Depends, Header, HTTPException
 from sqlalchemy.orm import Session
 
@@ -47,4 +48,18 @@ def get_messages(
         raise HTTPException(status_code=404, detail="Session not found")
 
     msgs = crud.list_messages(db, user_id, session_id, limit=500)
-    return [MessageOut(id=m.id, role=m.role, content=m.content) for m in msgs]
+
+    def to_message_out(m):
+        encoded = None
+        if m.image_bytes:
+            encoded = base64.b64encode(m.image_bytes).decode("utf-8")
+
+        return MessageOut(
+            id=m.id,
+            role=m.role,
+            content=m.content,
+            image_base64=encoded,
+            image_mime=m.image_mime,
+        )
+
+    return [to_message_out(m) for m in msgs]

@@ -11,7 +11,9 @@ class SessionOut(BaseModel):
 class MessageOut(BaseModel):
     id: str
     role: Literal["user", "assistant"]
-    content: str
+    content: Optional[str] = None
+    image_base64: Optional[str] = None
+    image_mime: Optional[str] = None
 
 class ChatStreamRequest(BaseModel):
     session_id: str

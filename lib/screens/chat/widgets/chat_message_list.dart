@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import 'package:flutter/services.dart';
 
 import '../controller/chat_controller.dart';
+import '../models/chat_message.dart';
 import 'typing_indicator.dart';
 
 class ChatMessageList extends StatefulWidget {
@@ -49,9 +50,7 @@ class _ChatMessageListState extends State<ChatMessageList> {
           final message = controller.messages[index];
 
           final isTypingIndicator =
-              message.text.isEmpty &&
-              !message.isUser &&
-              message.imageFile == null;
+              message.text.isEmpty && !message.isUser && !message.hasImage;
 
           return Padding(
             padding: const EdgeInsets.symmetric(vertical: 6),
@@ -83,7 +82,7 @@ class _ChatMessageListState extends State<ChatMessageList> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               // 🖼 Image (if exists)
-                              if (message.imageFile != null)
+                              if (message.hasImage)
                                 SizedBox(
                                   width: 250,
                                   height: 320,
@@ -97,17 +96,13 @@ class _ChatMessageListState extends State<ChatMessageList> {
                                         ),
                                         borderRadius: BorderRadius.circular(12),
                                       ),
-                                      child: Image.file(
-                                        message.imageFile!,
-                                        fit: BoxFit.contain,
-                                      ),
+                                      child: _buildMessageImage(message),
                                     ),
                                   ),
                                 ),
 
                               // spacing between image & text
-                              if (message.imageFile != null &&
-                                  message.text.isNotEmpty)
+                              if (message.hasImage && message.text.isNotEmpty)
                                 const SizedBox(height: 8),
 
                               // 📝 Markdown text (if exists)
@@ -143,6 +138,24 @@ class _ChatMessageListState extends State<ChatMessageList> {
         },
       );
     });
+  }
+
+  Widget _buildMessageImage(ChatMessage message) {
+    if (message.imageFile != null) {
+      return Image.file(
+        message.imageFile!,
+        fit: BoxFit.contain,
+      );
+    }
+
+    if (message.imageBytes != null) {
+      return Image.memory(
+        message.imageBytes!,
+        fit: BoxFit.contain,
+      );
+    }
+
+    return const SizedBox.shrink();
   }
 
   void _copyText(BuildContext context, String text) {
