@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'dart:io';
@@ -103,6 +104,7 @@ class ChatController extends GetxController {
     final text = messageController.text.trim();
     final sessionId = selectedSessionId.value;
     final image = selectedImage.value;
+    final bool isFirstMessage = messages.isEmpty;
 
     if (sessionId == null) return;
     if (text.isEmpty && image == null) return;
@@ -126,6 +128,10 @@ class ChatController extends GetxController {
       ChatMessage(text: '', isUser: false, timestamp: DateTime.now()),
     );
     final assistantIndex = messages.length - 1;
+
+    if (isFirstMessage && text.isNotEmpty) {
+      _startTitleStream(sessionId: sessionId, prompt: text);
+    }
 
     try {
       final stream = image != null
@@ -182,6 +188,42 @@ class ChatController extends GetxController {
     if (value) {
       isSidebarOpen.value = false;
     }
+  }
+
+  void _startTitleStream({
+    required String sessionId,
+    required String prompt,
+  }) {
+    unawaited(_generateSessionTitle(sessionId: sessionId, prompt: prompt));
+  }
+
+  Future<void> _generateSessionTitle({
+    required String sessionId,
+    required String prompt,
+  }) async {
+    try {
+      final stream = _apiService.streamTitle(
+        sessionId: sessionId,
+        prompt: prompt,
+      );
+      var buffer = '';
+      await for (final chunk in stream) {
+        buffer += chunk;
+        _applySessionTitle(sessionId, buffer);
+      }
+    } catch (e) {
+      debugPrint('Title stream failed: $e');
+    }
+  }
+
+  void _applySessionTitle(String sessionId, String rawTitle) {
+    final normalized = rawTitle.replaceAll('\n', ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
+    if (normalized.isEmpty) return;
+
+    final index = sessions.indexWhere((s) => s.id == sessionId);
+    if (index == -1) return;
+
+    sessions[index] = sessions[index].copyWith(title: normalized);
   }
 
   @override

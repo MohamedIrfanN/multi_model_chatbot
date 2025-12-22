@@ -21,6 +21,11 @@ class ChatStreamRequest(BaseModel):
     # multi-user later: accept from auth; for now optional override
     user_id: Optional[str] = None
 
+class ChatTitleRequest(BaseModel):
+    session_id: str
+    prompt: str
+    user_id: Optional[str] = None
+
 
 
 

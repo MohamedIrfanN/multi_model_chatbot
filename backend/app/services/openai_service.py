@@ -66,6 +66,39 @@ def image_bytes_to_base64(image_bytes: bytes) -> str:
     return base64.b64encode(image_bytes).decode("utf-8")
 
 
+def stream_title_from_prompt(user_prompt: str):
+    """
+    Generates a short chat title based on the first user prompt.
+    """
+    instruction = (
+        "Create a brief, descriptive chat title (max 6 words). "
+        "Use Title Case and avoid quotes or punctuation at the end."
+    )
+
+    resp = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": instruction},
+            {
+                "role": "user",
+                "content": (
+                    "Conversation opening message:\n"
+                    f"{user_prompt}\n\n"
+                    "Return only the title."
+                ),
+            },
+        ],
+        temperature=0.3,
+        max_tokens=32,
+        stream=True,
+    )
+
+    for chunk in resp:
+        delta = chunk.choices[0].delta
+        if delta and delta.content:
+            yield delta.content
+
+
 
 
 

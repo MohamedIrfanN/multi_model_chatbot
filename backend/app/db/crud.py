@@ -85,6 +85,19 @@ def add_message(
     db.refresh(msg)
     return msg
 
+def update_session_title(db: Session, user_id: str, session_id: str, title: str):
+    session = get_session(db, user_id, session_id)
+    if not session:
+        return None
+    sanitized = title.strip()
+    if not sanitized:
+        return None
+
+    session.title = sanitized[:80]
+    session.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(session)
+    return session
 
 def get_recent_messages(db: Session, user_id: str, session_id: str, limit: int):
     # newest first, then we reverse in service

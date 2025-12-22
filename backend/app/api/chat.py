@@ -1,13 +1,20 @@
 from fastapi import APIRouter, Depends, Header, HTTPException, UploadFile, File, Form
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
+
 from app.api.utils import ALLOWED_IMAGE_MIME_TYPES, MAX_IMAGE_SIZE_BYTES
-from app.services.openai_service import stream_vision_reply, image_bytes_to_base64
 from app.core.config import settings
 from app.db.database import get_db
 from app.db import crud
-from app.schemas.chat import ChatStreamRequest
-from app.services.openai_service import SYSTEM_PROMPT, stream_assistant_reply, summarize_chat
+from app.schemas.chat import ChatStreamRequest, ChatTitleRequest
+from app.services.openai_service import (
+    SYSTEM_PROMPT,
+    image_bytes_to_base64,
+    stream_assistant_reply,
+    stream_title_from_prompt,
+    stream_vision_reply,
+    summarize_chat,
+)
 
 router = APIRouter(tags=["chat"])
 
@@ -205,5 +212,36 @@ def chat_image_stream(
                     )
                     new_summary = summarize_chat(prev, recent_text)
                     crud.set_summary(db, user_id, session_id, new_summary)
+
+    return StreamingResponse(generator(), media_type="text/plain")
+
+
+@router.post("/chat/title")
+def chat_title_stream(
+    body: ChatTitleRequest,
+    db: Session = Depends(get_db),
+    x_user_id: str | None = Header(default=None),
+):
+    user_id = _get_user_id(body.user_id, x_user_id)
+    crud.ensure_user(db, user_id)
+
+    session = crud.get_session(db, user_id, body.session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    prompt = body.prompt.strip()
+    if not prompt:
+        raise HTTPException(status_code=400, detail="Prompt is required")
+
+    def generator():
+        title_full = ""
+        try:
+            for token in stream_title_from_prompt(prompt):
+                title_full += token
+                yield token
+        finally:
+            cleaned = title_full.strip()
+            if cleaned:
+                crud.update_session_title(db, user_id, body.session_id, cleaned)
 
     return StreamingResponse(generator(), media_type="text/plain")

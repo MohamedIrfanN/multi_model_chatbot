@@ -89,4 +89,21 @@ class ChatApiService {
       if (decoded.isNotEmpty) yield decoded;
     }
   }
+
+  Stream<String> streamTitle({
+    required String sessionId,
+    required String prompt,
+  }) async* {
+    final response = await _streamDio.post<ResponseBody>(
+      '/chat/title',
+      data: {'session_id': sessionId, 'prompt': prompt},
+    );
+
+    final stream = response.data!.stream;
+    await for (final chunk in stream.cast<List<int>>().transform(utf8.decoder)) {
+      if (chunk.isNotEmpty) {
+        yield chunk;
+      }
+    }
+  }
 }
