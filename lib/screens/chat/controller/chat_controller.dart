@@ -28,6 +28,8 @@ class ChatController extends GetxController {
   // API
   final ChatApiService _apiService = ChatApiService();
 
+  final isSidebarOpen = true.obs;
+
   @override
   void onInit() {
     super.onInit();
@@ -167,6 +169,10 @@ class ChatController extends GetxController {
   void clearSelectedImage() {
     selectedImage.value = null;
   }
+
+  void toggleSidebar() {
+  isSidebarOpen.toggle();
+}
 
   @override
   void onClose() {

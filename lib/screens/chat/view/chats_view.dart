@@ -17,10 +17,7 @@ class ChatScreenView extends GetView<ChatController> {
       body: Stack(
         children: [
           Positioned.fill(
-            child: Image.asset(
-              'assets/images/starshd.png',
-              fit: BoxFit.cover,
-            ),
+            child: Image.asset('assets/images/starshd.png', fit: BoxFit.cover),
           ),
           // Positioned.fill(
           //   child: Container(
@@ -44,19 +41,17 @@ class ChatScreenView extends GetView<ChatController> {
                   //     color: Colors.white.withOpacity(0.04),
                   //   ),
                   // ),
-                  child: Obx(
-                    () {
-                      final hasMessages = controller.messages.isNotEmpty;
-                      return AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 320),
-                        switchInCurve: Curves.easeOutCubic,
-                        switchOutCurve: Curves.easeInCubic,
-                        child: hasMessages
-                            ? const _ChatConversation()
-                            : const _ChatLanding(),
-                      );
-                    },
-                  ),
+                  child: Obx(() {
+                    final hasMessages = controller.messages.isNotEmpty;
+                    return AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 320),
+                      switchInCurve: Curves.easeOutCubic,
+                      switchOutCurve: Curves.easeInCubic,
+                      child: hasMessages
+                          ? const _ChatConversation()
+                          : const _ChatLanding(),
+                    );
+                  }),
                 );
 
                 return Padding(
@@ -80,12 +75,66 @@ class ChatScreenView extends GetView<ChatController> {
                             : Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const SizedBox(
-                                    width: 280,
-                                    child: ChatSidebar(),
-                                  ),
+                                  Obx(() {
+                                    final isOpen =
+                                        controller.isSidebarOpen.value;
+
+                                    return AnimatedContainer(
+                                      duration: const Duration(
+                                        milliseconds: 260,
+                                      ),
+                                      curve: Curves.easeOutCubic,
+                                      width: isOpen ? 280 : 0,
+                                      child: ClipRect(
+                                        child: Align(
+                                          alignment: Alignment.centerLeft,
+                                          widthFactor: isOpen ? 1 : 0,
+                                          child: const ChatSidebar(),
+                                        ),
+                                      ),
+                                    );
+                                  }),
                                   const SizedBox(width: 28),
-                                  Expanded(child: chatSurface),
+                                  Expanded(
+                                    child: Stack(
+                                      children: [
+                                        chatSurface,
+
+                                        // Floating menu button when sidebar is closed
+                                        Obx(() {
+                                          if (controller.isSidebarOpen.value) {
+                                            return const SizedBox.shrink();
+                                          }
+
+                                          return Positioned(
+                                            left: 16,
+                                            top: 16,
+                                            child: GestureDetector(
+                                              onTap: controller.toggleSidebar,
+                                              child: Container(
+                                                height: 42,
+                                                width: 42,
+                                                decoration: BoxDecoration(
+                                                  color: Colors.black
+                                                      .withOpacity(0.55),
+                                                  shape: BoxShape.circle,
+                                                  border: Border.all(
+                                                    color: Colors.white
+                                                        .withOpacity(0.08),
+                                                  ),
+                                                ),
+                                                child: const Icon(
+                                                  Icons.menu,
+                                                  color: Colors.white70,
+                                                  size: 22,
+                                                ),
+                                              ),
+                                            ),
+                                          );
+                                        }),
+                                      ],
+                                    ),
+                                  ),
                                 ],
                               ),
                       ),
