@@ -28,6 +28,8 @@ class ChatScreenView extends GetView<ChatController> {
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final isCompact = constraints.maxWidth < 900;
+                controller.setCompactMode(isCompact);
+                const double compactDrawerWidth = 280.0;
 
                 Widget chatSurface = Container(
                   padding: const EdgeInsets.symmetric(
@@ -65,13 +67,51 @@ class ChatScreenView extends GetView<ChatController> {
                       child: SizedBox(
                         width: double.infinity,
                         child: isCompact
-                            ? Column(
-                                children: [
-                                  const ChatSidebar(),
-                                  const SizedBox(height: 16),
-                                  Expanded(child: chatSurface),
-                                ],
-                              )
+                            ? Obx(() {
+                                final isOpen =
+                                    controller.isSidebarOpen.value;
+                                final double chatOffset =
+                                    isOpen ? compactDrawerWidth : 0;
+
+                                return Stack(
+                                  clipBehavior: Clip.none,
+                                  children: [
+                                    ClipRect(
+                                      child: AnimatedContainer(
+                                        duration:
+                                            const Duration(milliseconds: 260),
+                                        curve: Curves.easeOutCubic,
+                                        transform: Matrix4.translationValues(
+                                          chatOffset,
+                                          0,
+                                          0,
+                                        ),
+                                        child: Stack(
+                                          children: [
+                                            chatSurface,
+                                            _buildFloatingMenuButton(),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                    AnimatedPositioned(
+                                      duration: const Duration(
+                                        milliseconds: 260,
+                                      ),
+                                      curve: Curves.easeOutCubic,
+                                      top: 0,
+                                      bottom: 0,
+                                      left: isOpen
+                                          ? 0
+                                          : -compactDrawerWidth - 32,
+                                      child: SizedBox(
+                                        width: compactDrawerWidth,
+                                        child: const ChatSidebar(),
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              })
                             : Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -101,37 +141,7 @@ class ChatScreenView extends GetView<ChatController> {
                                         chatSurface,
 
                                         // Floating menu button when sidebar is closed
-                                        Obx(() {
-                                          if (controller.isSidebarOpen.value) {
-                                            return const SizedBox.shrink();
-                                          }
-
-                                          return Positioned(
-                                            left: 16,
-                                            top: 16,
-                                            child: GestureDetector(
-                                              onTap: controller.toggleSidebar,
-                                              child: Container(
-                                                height: 42,
-                                                width: 42,
-                                                decoration: BoxDecoration(
-                                                  color: Colors.black
-                                                      .withOpacity(0.55),
-                                                  shape: BoxShape.circle,
-                                                  border: Border.all(
-                                                    color: Colors.white
-                                                        .withOpacity(0.08),
-                                                  ),
-                                                ),
-                                                child: const Icon(
-                                                  Icons.menu,
-                                                  color: Colors.white70,
-                                                  size: 22,
-                                                ),
-                                              ),
-                                            ),
-                                          );
-                                        }),
+                                        _buildFloatingMenuButton(),
                                       ],
                                     ),
                                   ),
@@ -147,6 +157,38 @@ class ChatScreenView extends GetView<ChatController> {
         ],
       ),
     );
+  }
+
+  Widget _buildFloatingMenuButton() {
+    return Obx(() {
+      if (controller.isSidebarOpen.value) {
+        return const SizedBox.shrink();
+      }
+
+      return Positioned(
+        left: 16,
+        top: 16,
+        child: GestureDetector(
+          onTap: controller.toggleSidebar,
+          child: Container(
+            height: 42,
+            width: 42,
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.55),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: Colors.white.withOpacity(0.08),
+              ),
+            ),
+            child: const Icon(
+              Icons.menu,
+              color: Colors.white70,
+              size: 22,
+            ),
+          ),
+        ),
+      );
+    });
   }
 }
 

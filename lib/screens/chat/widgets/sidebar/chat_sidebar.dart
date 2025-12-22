@@ -81,6 +81,9 @@ class _SidebarHeader extends GetView<ChatController> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth;
+        if (width < 48) {
+          return const SizedBox(height: 36);
+        }
 
         // Sidebar is too narrow → shrink button
         final scale = width >= 36 ? 1.0 : (width / 36).clamp(0.0, 1.0);

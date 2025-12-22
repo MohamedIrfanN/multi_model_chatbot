@@ -29,6 +29,7 @@ class ChatController extends GetxController {
   final ChatApiService _apiService = ChatApiService();
 
   final isSidebarOpen = true.obs;
+  final isCompactMode = false.obs;
 
   @override
   void onInit() {
@@ -171,8 +172,17 @@ class ChatController extends GetxController {
   }
 
   void toggleSidebar() {
-  isSidebarOpen.toggle();
-}
+    isSidebarOpen.toggle();
+  }
+
+  void setCompactMode(bool value) {
+    if (isCompactMode.value == value) return;
+    isCompactMode.value = value;
+
+    if (value) {
+      isSidebarOpen.value = false;
+    }
+  }
 
   @override
   void onClose() {
