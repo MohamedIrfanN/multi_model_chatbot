@@ -1,149 +1,171 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-
+import 'dart:io';
+import 'package:file_picker/file_picker.dart';
 import '../models/chat_message.dart';
 import '../models/chat_session.dart';
 import '../services/chat_api_service.dart';
 
 class ChatController extends GetxController {
+  // Suggestions (keep as-is)
   final suggestions = <String>[
     'Any advice for me?',
     'Some YouTube video idea',
     'Life lessons',
   ].obs;
 
+  // Backend-driven state
   final sessions = <ChatSession>[].obs;
   final messages = <ChatMessage>[].obs;
   final selectedSessionId = RxnString();
 
+  final Rx<File?> selectedImage = Rx<File?>(null);
+
+  // Input
   final messageController = TextEditingController();
   final isComposing = false.obs;
 
-  final Map<String, List<ChatMessage>> _messagesPerSession = {};
-  static const _defaultSessionTitle = 'New chat';
-
-  // 🔹 API service (single instance)
+  // API
   final ChatApiService _apiService = ChatApiService();
 
   @override
   void onInit() {
     super.onInit();
     messageController.addListener(_handleInputChanged);
-    _createInitialSession();
+    _bootstrap();
   }
 
-  void _createInitialSession() {
-    final session = _buildSession();
-    sessions.add(session);
-    selectedSessionId.value = session.id;
-    _messagesPerSession[session.id] = <ChatMessage>[];
-    messages.clear();
+  // -------------------------
+  // Startup: restore last chat
+  // -------------------------
+  Future<void> _bootstrap() async {
+    try {
+      final fetchedSessions = await _apiService.fetchSessions();
+
+      if (fetchedSessions.isNotEmpty) {
+        sessions.assignAll(fetchedSessions);
+        await selectChat(fetchedSessions.first.id); // most recent
+      } else {
+        final session = await _apiService.createSession();
+        sessions.add(session);
+        await selectChat(session.id);
+      }
+    } catch (e) {
+      debugPrint('Bootstrap failed: $e');
+    }
   }
 
-  ChatSession _buildSession() {
-    final now = DateTime.now();
-    return ChatSession(
-      id: now.microsecondsSinceEpoch.toString(),
-      title: _defaultSessionTitle,
-      createdAt: now,
-      updatedAt: now,
-    );
+  // -------------------------
+  // Session handling
+  // -------------------------
+  Future<void> createNewChat() async {
+    try {
+      final session = await _apiService.createSession();
+      sessions.insert(0, session);
+      await selectChat(session.id);
+    } catch (e) {
+      debugPrint('Create chat failed: $e');
+    }
   }
 
-  void createNewChat() {
-    final session = _buildSession();
-    sessions.insert(0, session);
-    _messagesPerSession[session.id] = <ChatMessage>[];
-    selectChat(session.id);
-    messageController.clear();
-    isComposing.value = false;
-  }
-
-  void selectChat(String sessionId) {
-    if (!sessions.any((chat) => chat.id == sessionId)) return;
-
+  Future<void> selectChat(String sessionId) async {
     selectedSessionId.value = sessionId;
-    messages.assignAll(_messagesPerSession[sessionId] ?? <ChatMessage>[]);
+    messages.clear();
+
+    try {
+      final fetched = await _apiService.fetchMessages(sessionId);
+      messages.assignAll(fetched);
+    } catch (e) {
+      debugPrint('Load messages failed: $e');
+    }
+
     messageController.clear();
     isComposing.value = false;
   }
 
-  void _handleInputChanged() {
-    isComposing.value = messageController.text.trim().isNotEmpty;
-  }
-
+  // -------------------------
+  // Suggestions
+  // -------------------------
   void fillFromSuggestion(String suggestion) {
     messageController
       ..text = suggestion
       ..selection = TextSelection.collapsed(offset: suggestion.length);
-    isComposing.value = suggestion.trim().isNotEmpty;
+    isComposing.value = true;
   }
 
+  // -------------------------
+  // Send + stream message
+  // -------------------------
   Future<void> sendMessage() async {
     final text = messageController.text.trim();
     final sessionId = selectedSessionId.value;
-    if (text.isEmpty || sessionId == null) return;
+    final image = selectedImage.value;
+
+    if (sessionId == null) return;
+    if (text.isEmpty && image == null) return;
+
     messageController.clear();
+    isComposing.value = false;
+    clearSelectedImage();
 
-    final timestamp = DateTime.now();
-
-    // 1️⃣ User message
-    final userMessage = ChatMessage(
-      text: text,
-      isUser: true,
-      timestamp: timestamp,
+    // 1️⃣ Optimistic user message
+    messages.add(
+      ChatMessage(
+        text: text,
+        isUser: true,
+        timestamp: DateTime.now(),
+        imageFile: image, // add this field in model
+      ),
     );
-    messages.add(userMessage);
 
-    // 2️⃣ Empty assistant message (will be streamed into)
+    // 2️⃣ Empty assistant message
     messages.add(
       ChatMessage(text: '', isUser: false, timestamp: DateTime.now()),
     );
-    _updateSessionSummary(sessionId, text, timestamp);
-    // Capture index ONCE
     final assistantIndex = messages.length - 1;
 
     try {
-      await for (final chunk in _apiService.streamMessage(text)) {
-        final current = messages[assistantIndex];
+      final stream = image != null
+          ? _apiService.streamImageMessage(
+              sessionId: sessionId,
+              imageFile: image,
+              text: text,
+            )
+          : _apiService.streamMessage(sessionId: sessionId, message: text);
 
+      await for (final chunk in stream) {
+        final current = messages[assistantIndex];
         messages[assistantIndex] = current.copyWith(text: current.text + chunk);
       }
     } catch (e) {
       final current = messages[assistantIndex];
       messages[assistantIndex] = current.copyWith(
-        text: '⚠️ Failed to stream response.',
+        text: '⚠️ Failed to get response.',
       );
     }
-
-    // 4️⃣ Persist final state
-    _messagesPerSession[sessionId] = List<ChatMessage>.from(messages);
   }
 
-  void _updateSessionSummary(
-    String sessionId,
-    String latestMessage,
-    DateTime timestamp,
-  ) {
-    final index = sessions.indexWhere((chat) => chat.id == sessionId);
-    if (index == -1) return;
+  // -------------------------
+  // Input state
+  // -------------------------
+  void _handleInputChanged() {
+    isComposing.value = messageController.text.trim().isNotEmpty;
+  }
 
-    final chat = sessions[index];
-    final updatedChat = chat.copyWith(
-      title: chat.title == _defaultSessionTitle
-          ? _truncate(latestMessage)
-          : chat.title,
-      updatedAt: timestamp,
+  Future<void> pickImage() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.image,
+      allowMultiple: false,
+      withData: false,
     );
 
-    sessions[index] = updatedChat;
-    sessions.refresh();
+    if (result != null && result.files.single.path != null) {
+      selectedImage.value = File(result.files.single.path!);
+    }
   }
 
-  String _truncate(String text) {
-    const maxChars = 36;
-    if (text.length <= maxChars) return text;
-    return '${text.substring(0, maxChars - 1)}…';
+  void clearSelectedImage() {
+    selectedImage.value = null;
   }
 
   @override
@@ -154,70 +176,3 @@ class ChatController extends GetxController {
     super.onClose();
   }
 }
-
-
-
-
-
-
-
-
-
- // Future<void> sendMessage() async {
-  //   final text = messageController.text.trim();
-  //   final sessionId = selectedSessionId.value;
-  //   if (text.isEmpty || sessionId == null) return;
-
-  //   final timestamp = DateTime.now();
-
-  //   // 1️⃣ Add user message (optimistic UI)
-  //   final userMessage = ChatMessage(
-  //     text: text,
-  //     isUser: true,
-  //     timestamp: timestamp,
-  //   );
-  //   messages.add(userMessage);
-
-  //   // 2️⃣ Add assistant placeholder
-  //   final placeholder = ChatMessage(
-  //     text: 'Thinking...',
-  //     isUser: false,
-  //     timestamp: DateTime.now(),
-  //   );
-  //   messages.add(placeholder);
-
-  //   // Persist immediately
-  //   _messagesPerSession[sessionId] = List<ChatMessage>.from(messages);
-  //   _updateSessionSummary(sessionId, text, timestamp);
-
-  //   messageController.clear();
-  //   isComposing.value = false;
-
-  //   try {
-  //     // 3️⃣ Call backend
-  //     final reply = await _apiService.sendMessage(text);
-
-  //     // 4️⃣ Replace placeholder with real response
-  //     final index = messages.indexOf(placeholder);
-  //     if (index != -1) {
-  //       messages[index] = ChatMessage(
-  //         text: reply,
-  //         isUser: false,
-  //         timestamp: DateTime.now(),
-  //       );
-  //     }
-  //   } catch (e) {
-  //     // 5️⃣ Replace placeholder with error
-  //     final index = messages.indexOf(placeholder);
-  //     if (index != -1) {
-  //       messages[index] = ChatMessage(
-  //         text: '⚠️ Failed to get response. Please try again.',
-  //         isUser: false,
-  //         timestamp: DateTime.now(),
-  //       );
-  //     }
-  //   }
-
-  //   // Persist final state
-  //   _messagesPerSession[sessionId] = List<ChatMessage>.from(messages);
-  // }

@@ -22,4 +22,17 @@ class ChatSession {
       updatedAt: updatedAt ?? this.updatedAt,
     );
   }
+
+
+  factory ChatSession.fromJson(Map<String, dynamic> json) {
+    return ChatSession(
+      id: json['id'],
+      title: json['title'],
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+  }
+
 }
+
+

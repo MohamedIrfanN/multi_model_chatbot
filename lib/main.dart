@@ -6,6 +6,7 @@ import 'package:multimodel_chatbot/screens/chat/view/chats_view.dart';
 
 void main() {
   Get.put(ChatController());
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(const MyApp());
 }
 

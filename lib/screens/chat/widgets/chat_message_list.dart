@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:get/get.dart';
+import 'package:flutter/services.dart';
+
 import '../controller/chat_controller.dart';
 import 'typing_indicator.dart';
-import 'package:flutter/services.dart';
 
 class ChatMessageList extends StatefulWidget {
   const ChatMessageList({super.key});
@@ -34,7 +36,7 @@ class _ChatMessageListState extends State<ChatMessageList> {
   @override
   Widget build(BuildContext context) {
     return Obx(() {
-      // Schedule scroll AFTER the list rebuilds
+      // Scroll after rebuild (important for streaming & images)
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _scrollToBottom();
       });
@@ -46,58 +48,112 @@ class _ChatMessageListState extends State<ChatMessageList> {
         itemBuilder: (context, index) {
           final message = controller.messages[index];
 
+          final isTypingIndicator =
+              message.text.isEmpty &&
+              !message.isUser &&
+              message.imageFile == null;
+
           return Padding(
             padding: const EdgeInsets.symmetric(vertical: 6),
             child: Align(
               alignment: message.isUser
                   ? Alignment.centerRight
                   : Alignment.centerLeft,
-              child: Container(
-                constraints: const BoxConstraints(maxWidth: 520),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 10,
-                ),
-                decoration: BoxDecoration(
-                  color: message.isUser
-                      ? Colors.white.withOpacity(0.12)
-                      : Colors.white.withOpacity(0.06),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: message.text.isEmpty && !message.isUser
-                    ? const TypingIndicator()
-                    : GestureDetector(
-                        onSecondaryTap: () {
-                          Clipboard.setData(ClipboardData(text: message.text));
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Copied to clipboard'),
-                              duration: Duration(milliseconds: 800),
-                            ),
-                          );
-                        },
-                        onLongPress: () {
-                          Clipboard.setData(ClipboardData(text: message.text));
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Copied to clipboard'),
-                              duration: Duration(milliseconds: 800),
-                            ),
-                          );
-                        },
-                        child: SelectableText(
-                          message.text,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 14,
+              child: IntrinsicWidth(
+                child: Container(
+                  constraints: const BoxConstraints(maxWidth: 520),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: message.isUser
+                        ? Colors.white.withOpacity(0.12)
+                        : Colors.white.withOpacity(0.06),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: isTypingIndicator
+                      ? const TypingIndicator()
+                      : GestureDetector(
+                          onSecondaryTap: () =>
+                              _copyText(context, message.text),
+                          onLongPress: () => _copyText(context, message.text),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // 🖼 Image (if exists)
+                              if (message.imageFile != null)
+                                SizedBox(
+                                  width: 250,
+                                  height: 320,
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: Container(
+                                      width: 280, // ✅ HARD WIDTH (key fix)
+                                      decoration: BoxDecoration(
+                                        border: Border.all(
+                                          color: Colors.white.withOpacity(0.08),
+                                        ),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Image.file(
+                                        message.imageFile!,
+                                        fit: BoxFit.contain,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+
+                              // spacing between image & text
+                              if (message.imageFile != null &&
+                                  message.text.isNotEmpty)
+                                const SizedBox(height: 8),
+
+                              // 📝 Markdown text (if exists)
+                              if (message.text.isNotEmpty)
+                                MarkdownBody(
+                                  data: message.text,
+                                  selectable: true,
+                                  styleSheet: MarkdownStyleSheet(
+                                    p: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 14,
+                                      height: 1.4,
+                                    ),
+                                    code: TextStyle(
+                                      color: Colors.greenAccent.shade200,
+                                      fontFamily: 'monospace',
+                                      fontSize: 13,
+                                    ),
+                                    codeblockPadding: const EdgeInsets.all(12),
+                                    codeblockDecoration: BoxDecoration(
+                                      color: Colors.black.withOpacity(0.35),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
                         ),
-                      ),
+                ),
               ),
             ),
           );
         },
       );
     });
+  }
+
+  void _copyText(BuildContext context, String text) {
+    if (text.isEmpty) return;
+
+    Clipboard.setData(ClipboardData(text: text));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Copied to clipboard'),
+        duration: Duration(milliseconds: 800),
+      ),
+    );
   }
 }

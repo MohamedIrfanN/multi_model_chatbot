@@ -1,30 +1,59 @@
-import 'package:dio/dio.dart';
 import 'dart:convert';
+import 'package:dio/dio.dart';
+import 'dart:io';
+import '../models/chat_message.dart';
+import '../models/chat_session.dart';
 
 class ChatApiService {
-  late final Dio _dio;
+  // Normal JSON requests
+  final Dio _jsonDio = Dio(
+    BaseOptions(
+      baseUrl: 'http://localhost:8000',
+      headers: {'Content-Type': 'application/json'},
+    ),
+  );
 
-  ChatApiService() {
-    _dio = Dio(
-      BaseOptions(
-        baseUrl: 'http://localhost:8000',
-        connectTimeout: const Duration(seconds: 10),
-        receiveTimeout: const Duration(seconds: 0),
-        responseType: ResponseType.stream,
-        headers: {'Content-Type': 'application/json'},
-      ),
-    );
+  // Streaming requests ONLY
+  final Dio _streamDio = Dio(
+    BaseOptions(
+      baseUrl: 'http://localhost:8000',
+      responseType: ResponseType.stream,
+      receiveTimeout: const Duration(seconds: 0),
+      headers: {'Content-Type': 'application/json'},
+    ),
+  );
+
+  // -------------------------
+  // Sessions
+  // -------------------------
+  Future<List<ChatSession>> fetchSessions() async {
+    final res = await _jsonDio.get('/sessions');
+    return (res.data as List).map((e) => ChatSession.fromJson(e)).toList();
   }
 
-  Stream<String> streamMessage(String message) async* {
-    final response = await _dio.post<ResponseBody>(
+  Future<ChatSession> createSession() async {
+    final res = await _jsonDio.post('/sessions', data: {'title': 'New chat'});
+    return ChatSession.fromJson(res.data);
+  }
+
+  Future<List<ChatMessage>> fetchMessages(String sessionId) async {
+    final res = await _jsonDio.get('/sessions/$sessionId/messages');
+    return (res.data as List).map((e) => ChatMessage.fromJson(e)).toList();
+  }
+
+  // -------------------------
+  // Streaming chat
+  // -------------------------
+  Stream<String> streamMessage({
+    required String sessionId,
+    required String message,
+  }) async* {
+    final response = await _streamDio.post<ResponseBody>(
       '/chat',
-      data: {'message': message},
-      options: Options(responseType: ResponseType.stream),
+      data: {'session_id': sessionId, 'message': message},
     );
 
     final byteStream = response.data!.stream;
-
     await for (final chunk in byteStream.cast<List<int>>().transform(
       utf8.decoder,
     )) {
@@ -33,47 +62,31 @@ class ChatApiService {
       }
     }
   }
+
+  Stream<String> streamImageMessage({
+    required String sessionId,
+    required File imageFile,
+    String? text,
+  }) async* {
+    final formData = FormData.fromMap({
+      'session_id': sessionId,
+      if (text != null && text.isNotEmpty) 'text': text,
+      'image': await MultipartFile.fromFile(
+        imageFile.path,
+        filename: imageFile.path.split('/').last,
+      ),
+    });
+
+    final response = await _streamDio.post<ResponseBody>(
+      '/chat/image',
+      data: formData,
+      options: Options(contentType: 'multipart/form-data'),
+    );
+
+    final stream = response.data!.stream;
+    await for (final chunk in stream.cast<List<int>>()) {
+      final decoded = String.fromCharCodes(chunk);
+      if (decoded.isNotEmpty) yield decoded;
+    }
+  }
 }
-
-// class ChatApiService {
-//   late final Dio _dio;
-
-//   ChatApiService() {
-//     _dio = Dio(
-//       BaseOptions(
-//         baseUrl: 'http://localhost:8000',
-//         connectTimeout: const Duration(seconds: 10),
-//         receiveTimeout: const Duration(seconds: 30),
-//         headers: {'Content-Type': 'application/json'},
-//       ),
-//     );
-//   }
-
-//   /// Sends a user message to the backend and returns the AI reply
-//   Future<String> sendMessage(String message) async {
-//     try {
-//       print('📤 Sending message to backend: $message');
-//       final response = await _dio.post('/chat', data: {'message': message});
-//       print('📥 Backend response: ${response.data}');
-
-//       // Expected backend response:
-//       // { "reply": "..." }
-//       final data = response.data;
-
-//       if (data == null || data['reply'] == null) {
-//         throw Exception('Invalid response from server');
-//       }
-
-//       return data['reply'] as String;
-//     } on DioException catch (e) {
-//       // Network / server error
-//       final errorMessage =
-//           e.response?.data?.toString() ?? e.message ?? 'Unknown error';
-//       throw Exception('Backend error: $errorMessage');
-//     } catch (e) {
-//       // Any other error
-//       throw Exception('Unexpected error: $e');
-//     }
-//   }
-
-// }
