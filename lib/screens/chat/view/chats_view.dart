@@ -213,7 +213,7 @@ class _ChatConversation extends StatelessWidget {
         key: const ValueKey('chat'),
         children: const [
           Expanded(child: ChatMessageList()),
-          SizedBox(height: 28),
+          SizedBox(height: 0),
           ChatInputBar(),
         ],
       ),

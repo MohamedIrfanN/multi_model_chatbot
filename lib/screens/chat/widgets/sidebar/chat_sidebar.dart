@@ -41,7 +41,7 @@ class ChatSidebar extends GetView<ChatController> {
             const SizedBox(height: 12),
             Expanded(
               child: Obx(() {
-                final sessions = controller.sessions;
+                final sessions = controller.filteredSessions;
                 final selectedId = controller.selectedSessionId.value;
 
                 if (sessions.isEmpty) {
@@ -77,66 +77,117 @@ class ChatSidebar extends GetView<ChatController> {
 }
 
 class _SidebarHeader extends GetView<ChatController> {
+  const _SidebarHeader();
+
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final width = constraints.maxWidth;
-        if (width < 48) {
-          return const SizedBox(height: 36);
-        }
+    return SizedBox(
+      height: 44, // fixed height → no layout jump
+      child: Obx(() {
+        final isSearchOpen = controller.isSearchOpen.value;
 
-        // Sidebar is too narrow → shrink button
-        final scale = width >= 36 ? 1.0 : (width / 36).clamp(0.0, 1.0);
-        final canShowSearch = width >= 80;
+        return AnimatedSwitcher(
+          duration: const Duration(milliseconds: 260),
+          switchInCurve: Curves.easeOutCubic,
+          switchOutCurve: Curves.easeInCubic,
+          transitionBuilder: (child, animation) {
+            final slide = Tween<Offset>(
+              begin: const Offset(0.08, 0),
+              end: Offset.zero,
+            ).animate(animation);
 
-        return ClipRect(
-          child: Row(
-            children: [
-              Transform.scale(
-                scale: scale,
-                alignment: Alignment.centerLeft,
-                child: _circleButton(
-                  icon: Icons.menu,
-                  onTap: controller.toggleSidebar,
-                ),
-              ),
-
-              if (canShowSearch) ...[
-                const Spacer(),
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 200),
-                  child: _circleButton(
-                    key: const ValueKey('search'),
-                    icon: Icons.search,
-                    onTap: () {},
-                  ),
-                ),
-              ],
-            ],
-          ),
+            return FadeTransition(
+              opacity: animation,
+              child: SlideTransition(position: slide, child: child),
+            );
+          },
+          child: isSearchOpen
+              ? const _SearchBar(key: ValueKey('search'))
+              : const _HeaderActions(key: ValueKey('actions')),
         );
-      },
+      }),
     );
   }
+}
 
-  Widget _circleButton({
-    required IconData icon,
-    required VoidCallback onTap,
-    Key? key,
-  }) {
-    return GestureDetector(
+class _HeaderActions extends GetView<ChatController> {
+  const _HeaderActions({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
       key: key,
-      onTap: onTap,
-      child: Container(
-        height: 36,
-        width: 36,
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.08),
-          shape: BoxShape.circle,
+      children: [
+        _circleButton(icon: Icons.menu, onTap: controller.toggleSidebar),
+        const Spacer(),
+        _circleButton(
+          icon: Icons.search,
+          onTap: () {
+            controller.openSearch();
+            controller.isSearching.value = true;
+          },
         ),
-        child: Icon(icon, color: Colors.white70, size: 20),
+      ],
+    );
+  }
+}
+
+class _SearchBar extends GetView<ChatController> {
+  const _SearchBar({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: key,
+      height: 40,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.45),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withOpacity(0.08)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.search, size: 18, color: Colors.white60),
+          const SizedBox(width: 8),
+          Expanded(
+            child: TextField(
+              controller: controller.searchFieldController,
+              autofocus: true,
+              onChanged: controller.onSearchChanged,
+              style: const TextStyle(color: Colors.white),
+              decoration: const InputDecoration(
+                hintText: 'Search chats…',
+                hintStyle: TextStyle(color: Colors.white38),
+                border: InputBorder.none,
+                isDense: true,
+              ),
+            ),
+          ),
+          GestureDetector(
+            onTap: () {
+              controller.resetSearch();
+              controller.closeSearch();
+            },
+            child: const Icon(Icons.close, size: 18, color: Colors.white70),
+          ),
+        ],
       ),
     );
   }
+}
+
+Widget _circleButton({required IconData icon, required VoidCallback onTap}) {
+  return GestureDetector(
+    onTap: onTap,
+    child: Container(
+      height: 36,
+      width: 36,
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.08),
+        shape: BoxShape.circle,
+      ),
+      child: Icon(icon, color: Colors.white70, size: 20),
+    ),
+  );
 }

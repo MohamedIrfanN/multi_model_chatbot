@@ -34,6 +34,24 @@ class ChatController extends GetxController {
   final isCompactMode = false.obs;
   final selectedModel = ChatModel.gpt4oMini.obs;
 
+  // Sidebar search UI state
+  final isSearchOpen = false.obs;
+
+  void openSearch() {
+    searchFieldController.text = searchQuery.value;
+    isSearchOpen.value = true;
+    isSearching.value = searchQuery.value.isNotEmpty;
+  }
+
+  void closeSearch() => isSearchOpen.value = false;
+
+  // Search
+  final searchQuery = ''.obs;
+  final isSearching = false.obs;
+  final TextEditingController searchFieldController = TextEditingController();
+
+  Timer? _searchDebounce;
+
   @override
   void onInit() {
     super.onInit();
@@ -239,11 +257,44 @@ class ChatController extends GetxController {
     selectedModel.value = model;
   }
 
+  void onSearchChanged(String value) {
+    searchQuery.value = value;
+    isSearching.value = value.trim().isNotEmpty;
+
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 300), () {
+      // trigger reactive rebuild after debounce
+      searchQuery.refresh();
+    });
+  }
+
+  void resetSearch() {
+    searchFieldController.clear();
+    searchQuery.value = '';
+    isSearching.value = false;
+    searchQuery.refresh();
+  }
+
+  List<ChatSession> get filteredSessions {
+    final query = searchQuery.value.trim().toLowerCase();
+
+    if (query.isEmpty) {
+      return sessions;
+    }
+
+    return sessions.where((s) {
+      final title = s.title?.toLowerCase() ?? '';
+      return title.contains(query);
+    }).toList();
+  }
+
   @override
   void onClose() {
+    _searchDebounce?.cancel();
     messageController
       ..removeListener(_handleInputChanged)
       ..dispose();
+    searchFieldController.dispose();
     super.onClose();
   }
 }
