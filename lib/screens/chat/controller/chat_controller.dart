@@ -288,6 +288,29 @@ class ChatController extends GetxController {
     }).toList();
   }
 
+  Future<void> deleteChat(String sessionId) async {
+    try {
+      await _apiService.deleteSession(sessionId);
+
+      sessions.removeWhere((s) => s.id == sessionId);
+
+      // If the deleted chat was selected
+      if (selectedSessionId.value == sessionId) {
+        messages.clear();
+
+        if (sessions.isNotEmpty) {
+          await selectChat(sessions.first.id);
+        } else {
+          final newSession = await _apiService.createSession();
+          sessions.add(newSession);
+          await selectChat(newSession.id);
+        }
+      }
+    } catch (e) {
+      debugPrint('Delete chat failed: $e');
+    }
+  }
+
   @override
   void onClose() {
     _searchDebounce?.cancel();

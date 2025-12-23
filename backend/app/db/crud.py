@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
+from app.db.models import ChatMessage, ChatSession, ChatSummary
 
 from app.db import models
 
@@ -158,3 +159,25 @@ def count_assistant_messages(db, user_id: str, session_id: str) -> int:
         )
         .count()
     )
+
+
+def delete_session(db: Session, user_id: str, session_id: str):
+    # Delete all messages in the session
+    db.query(ChatMessage).filter(
+        ChatMessage.user_id == user_id,
+        ChatMessage.session_id == session_id,
+    ).delete()
+
+    # Delete summary memory
+    db.query(ChatSummary).filter(
+        ChatSummary.user_id == user_id,
+        ChatSummary.session_id == session_id,
+    ).delete()
+
+    # Delete the chat session itself
+    db.query(ChatSession).filter(
+        ChatSession.user_id == user_id,
+        ChatSession.id == session_id,
+    ).delete()
+
+    db.commit()

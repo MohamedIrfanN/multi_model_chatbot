@@ -315,3 +315,20 @@ def chat_title_stream(
                 )
 
     return StreamingResponse(generator(), media_type="text/plain")
+
+
+@router.delete("/chat/session/{session_id}")
+def delete_chat_session(
+    session_id: str,
+    db: Session = Depends(get_db),
+    x_user_id: str | None = Header(default=None),
+):
+    user_id = _get_user_id(None, x_user_id)
+    crud.ensure_user(db, user_id)
+
+    session = crud.get_session(db, user_id, session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    crud.delete_session(db, user_id, session_id)
+    return {"status": "ok"}

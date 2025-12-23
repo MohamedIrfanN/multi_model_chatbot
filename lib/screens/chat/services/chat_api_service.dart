@@ -103,10 +103,20 @@ class ChatApiService {
     );
 
     final stream = response.data!.stream;
-    await for (final chunk in stream.cast<List<int>>().transform(utf8.decoder)) {
+    await for (final chunk in stream.cast<List<int>>().transform(
+      utf8.decoder,
+    )) {
       if (chunk.isNotEmpty) {
         yield chunk;
       }
+    }
+  }
+
+  Future<void> deleteSession(String sessionId) async {
+    final response = await _jsonDio.delete('/chat/session/$sessionId');
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to delete session');
     }
   }
 }
