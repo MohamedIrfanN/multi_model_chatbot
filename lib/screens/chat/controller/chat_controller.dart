@@ -6,6 +6,7 @@ import 'package:file_picker/file_picker.dart';
 import '../models/chat_message.dart';
 import '../models/chat_session.dart';
 import '../services/chat_api_service.dart';
+import '../models/chat_model.dart';
 
 class ChatController extends GetxController {
   // Suggestions (keep as-is)
@@ -31,6 +32,7 @@ class ChatController extends GetxController {
 
   final isSidebarOpen = true.obs;
   final isCompactMode = false.obs;
+  final selectedModel = ChatModel.gpt4oMini.obs;
 
   @override
   void onInit() {
@@ -134,13 +136,20 @@ class ChatController extends GetxController {
     }
 
     try {
+      final modelId = selectedModel.value.apiName;
+
       final stream = image != null
           ? _apiService.streamImageMessage(
               sessionId: sessionId,
               imageFile: image,
               text: text,
+              model: modelId,
             )
-          : _apiService.streamMessage(sessionId: sessionId, message: text);
+          : _apiService.streamMessage(
+              sessionId: sessionId,
+              message: text,
+              model: modelId,
+            );
 
       await for (final chunk in stream) {
         final current = messages[assistantIndex];
@@ -190,10 +199,7 @@ class ChatController extends GetxController {
     }
   }
 
-  void _startTitleStream({
-    required String sessionId,
-    required String prompt,
-  }) {
+  void _startTitleStream({required String sessionId, required String prompt}) {
     unawaited(_generateSessionTitle(sessionId: sessionId, prompt: prompt));
   }
 
@@ -217,13 +223,20 @@ class ChatController extends GetxController {
   }
 
   void _applySessionTitle(String sessionId, String rawTitle) {
-    final normalized = rawTitle.replaceAll('\n', ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
+    final normalized = rawTitle
+        .replaceAll('\n', ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
     if (normalized.isEmpty) return;
 
     final index = sessions.indexWhere((s) => s.id == sessionId);
     if (index == -1) return;
 
     sessions[index] = sessions[index].copyWith(title: normalized);
+  }
+
+  void setModel(ChatModel model) {
+    selectedModel.value = model;
   }
 
   @override

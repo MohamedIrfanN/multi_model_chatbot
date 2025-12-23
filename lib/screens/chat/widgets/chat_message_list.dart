@@ -89,11 +89,8 @@ class _ChatMessageListState extends State<ChatMessageList> {
                                   child: ClipRRect(
                                     borderRadius: BorderRadius.circular(12),
                                     child: Container(
-                                      width: 280, // ✅ HARD WIDTH (key fix)
+                                      // width: 280, // ✅ HARD WIDTH (key fix)
                                       decoration: BoxDecoration(
-                                        border: Border.all(
-                                          color: Colors.white.withOpacity(0.08),
-                                        ),
                                         borderRadius: BorderRadius.circular(12),
                                       ),
                                       child: _buildMessageImage(message),
@@ -142,17 +139,11 @@ class _ChatMessageListState extends State<ChatMessageList> {
 
   Widget _buildMessageImage(ChatMessage message) {
     if (message.imageFile != null) {
-      return Image.file(
-        message.imageFile!,
-        fit: BoxFit.contain,
-      );
+      return Image.file(message.imageFile!, fit: BoxFit.fill);
     }
 
     if (message.imageBytes != null) {
-      return Image.memory(
-        message.imageBytes!,
-        fit: BoxFit.contain,
-      );
+      return Image.memory(message.imageBytes!, fit: BoxFit.fill);
     }
 
     return const SizedBox.shrink();

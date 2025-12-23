@@ -11,6 +11,7 @@ class ChatSidebar extends GetView<ChatController> {
   @override
   Widget build(BuildContext context) {
     return Container(
+      margin: const EdgeInsets.symmetric(vertical: 10),
       constraints: const BoxConstraints(minWidth: 280),
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
       decoration: BoxDecoration(

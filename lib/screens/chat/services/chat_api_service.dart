@@ -47,10 +47,11 @@ class ChatApiService {
   Stream<String> streamMessage({
     required String sessionId,
     required String message,
+    required String model,
   }) async* {
     final response = await _streamDio.post<ResponseBody>(
       '/chat',
-      data: {'session_id': sessionId, 'message': message},
+      data: {'session_id': sessionId, 'message': message, 'model': model},
     );
 
     final byteStream = response.data!.stream;
@@ -67,6 +68,7 @@ class ChatApiService {
     required String sessionId,
     required File imageFile,
     String? text,
+    required String model,
   }) async* {
     final formData = FormData.fromMap({
       'session_id': sessionId,
@@ -75,6 +77,7 @@ class ChatApiService {
         imageFile.path,
         filename: imageFile.path.split('/').last,
       ),
+      'model': model,
     });
 
     final response = await _streamDio.post<ResponseBody>(
