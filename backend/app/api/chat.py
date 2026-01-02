@@ -7,6 +7,7 @@ from app.core.config import settings
 from app.db.database import get_db
 from app.db import crud
 from app.schemas.chat import ChatStreamRequest, ChatTitleRequest
+from app.api.dependencies import get_current_user_id
 from app.services.openai_service import (
     SYSTEM_PROMPT,
     image_bytes_to_base64,
@@ -30,10 +31,6 @@ ALLOWED_MODELS = {
 DEFAULT_MODEL = "gpt-4o-mini"
 
 
-def _get_user_id(req_user_id: str | None, header_user_id: str | None):
-    return req_user_id or header_user_id or settings.DEFAULT_USER_ID
-
-
 def _resolve_model(model: str | None) -> str:
     if model in ALLOWED_MODELS:
         return model
@@ -47,10 +44,9 @@ def _resolve_model(model: str | None) -> str:
 @router.post("/chat")
 def chat_stream(
     body: ChatStreamRequest,
+    user_id: str = Depends(get_current_user_id),
     db: Session = Depends(get_db),
-    x_user_id: str | None = Header(default=None),
 ):
-    user_id = _get_user_id(body.user_id, x_user_id)
     crud.ensure_user(db, user_id)
 
     session = crud.get_session(db, user_id, body.session_id)
@@ -152,10 +148,9 @@ def chat_image_stream(
     image: UploadFile = File(...),
     text: str | None = Form(None),
     model: str | None = Form(None),  # ✅ model from frontend
+    user_id: str = Depends(get_current_user_id),
     db: Session = Depends(get_db),
-    x_user_id: str | None = Header(default=None),
 ):
-    user_id = _get_user_id(None, x_user_id)
     crud.ensure_user(db, user_id)
 
     session = crud.get_session(db, user_id, session_id)
@@ -284,10 +279,9 @@ def chat_image_stream(
 @router.post("/chat/title")
 def chat_title_stream(
     body: ChatTitleRequest,
+    user_id: str = Depends(get_current_user_id),
     db: Session = Depends(get_db),
-    x_user_id: str | None = Header(default=None),
 ):
-    user_id = _get_user_id(body.user_id, x_user_id)
     crud.ensure_user(db, user_id)
 
     session = crud.get_session(db, user_id, body.session_id)
@@ -320,10 +314,9 @@ def chat_title_stream(
 @router.delete("/chat/session/{session_id}")
 def delete_chat_session(
     session_id: str,
+    user_id: str = Depends(get_current_user_id),
     db: Session = Depends(get_db),
-    x_user_id: str | None = Header(default=None),
 ):
-    user_id = _get_user_id(None, x_user_id)
     crud.ensure_user(db, user_id)
 
     session = crud.get_session(db, user_id, session_id)

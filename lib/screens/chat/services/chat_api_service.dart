@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'dart:io';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/chat_message.dart';
 import '../models/chat_session.dart';
 
@@ -27,17 +28,24 @@ class ChatApiService {
   // Sessions
   // -------------------------
   Future<List<ChatSession>> fetchSessions() async {
-    final res = await _jsonDio.get('/sessions');
+    final res = await _jsonDio.get('/sessions', options: await _authOptions());
     return (res.data as List).map((e) => ChatSession.fromJson(e)).toList();
   }
 
   Future<ChatSession> createSession() async {
-    final res = await _jsonDio.post('/sessions', data: {'title': 'New chat'});
+    final res = await _jsonDio.post(
+      '/sessions',
+      data: {'title': 'New chat'},
+      options: await _authOptions(),
+    );
     return ChatSession.fromJson(res.data);
   }
 
   Future<List<ChatMessage>> fetchMessages(String sessionId) async {
-    final res = await _jsonDio.get('/sessions/$sessionId/messages');
+    final res = await _jsonDio.get(
+      '/sessions/$sessionId/messages',
+      options: await _authOptions(),
+    );
     return (res.data as List).map((e) => ChatMessage.fromJson(e)).toList();
   }
 
@@ -52,6 +60,7 @@ class ChatApiService {
     final response = await _streamDio.post<ResponseBody>(
       '/chat',
       data: {'session_id': sessionId, 'message': message, 'model': model},
+      options: await _authOptions(),
     );
 
     final byteStream = response.data!.stream;
@@ -83,7 +92,9 @@ class ChatApiService {
     final response = await _streamDio.post<ResponseBody>(
       '/chat/image',
       data: formData,
-      options: Options(contentType: 'multipart/form-data'),
+      options: (await _authOptions()).copyWith(
+        contentType: 'multipart/form-data',
+      ),
     );
 
     final stream = response.data!.stream;
@@ -100,6 +111,7 @@ class ChatApiService {
     final response = await _streamDio.post<ResponseBody>(
       '/chat/title',
       data: {'session_id': sessionId, 'prompt': prompt},
+      options: await _authOptions(),
     );
 
     final stream = response.data!.stream;
@@ -113,10 +125,24 @@ class ChatApiService {
   }
 
   Future<void> deleteSession(String sessionId) async {
-    final response = await _jsonDio.delete('/chat/session/$sessionId');
+    final response = await _jsonDio.delete(
+      '/chat/session/$sessionId',
+      options: await _authOptions(),
+    );
 
     if (response.statusCode != 200) {
       throw Exception('Failed to delete session');
     }
+  }
+
+  SharedPreferences? _prefs;
+
+  Future<Options> _authOptions() async {
+    _prefs ??= await SharedPreferences.getInstance();
+    final token = _prefs?.getString('access_token');
+    if (token == null || token.isEmpty) {
+      throw Exception('Missing auth token');
+    }
+    return Options(headers: {'Authorization': 'Bearer $token'});
   }
 }

@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:multimodel_chatbot/screens/chat/bindings/chat_binding.dart';
-import 'package:multimodel_chatbot/screens/chat/controller/chat_controller.dart';
-import 'package:multimodel_chatbot/screens/chat/view/chats_view.dart';
+
+import 'screens/auth/bindings/auth_binding.dart';
+import 'screens/auth/view/auth_gate.dart';
 
 void main() {
-  Get.put(ChatController());
   WidgetsFlutterBinding.ensureInitialized();
   runApp(const MyApp());
 }
@@ -20,8 +19,8 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
       ),
-      initialBinding: ChatBinding(),
-      home: const ChatScreenView(),
+      initialBinding: AuthBinding(),
+      home: const AuthGate(),
     );
   }
 }

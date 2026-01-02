@@ -1,12 +1,15 @@
 import 'dart:async';
+import 'dart:io';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'dart:io';
-import 'package:file_picker/file_picker.dart';
+
+import '../../auth/controller/auth_controller.dart';
 import '../models/chat_message.dart';
 import '../models/chat_session.dart';
-import '../services/chat_api_service.dart';
 import '../models/chat_model.dart';
+import '../services/chat_api_service.dart';
 
 class ChatController extends GetxController {
   // Suggestions (keep as-is)
@@ -51,18 +54,32 @@ class ChatController extends GetxController {
   final TextEditingController searchFieldController = TextEditingController();
 
   Timer? _searchDebounce;
+  Worker? _authWorker;
+  late AuthController _authController;
+  bool _isBootstrapping = false;
 
   @override
   void onInit() {
     super.onInit();
     messageController.addListener(_handleInputChanged);
-    _bootstrap();
+    _authController = Get.find<AuthController>();
+    _authWorker = ever<String?>(
+      _authController.userId,
+      (uid) => _handleAuthStateChanged(uid),
+    );
+    _handleAuthStateChanged(_authController.userId.value);
   }
 
   // -------------------------
   // Startup: restore last chat
   // -------------------------
   Future<void> _bootstrap() async {
+    if (_isBootstrapping) return;
+    final userId = _authController.userId.value;
+    if (userId == null) return;
+
+    _isBootstrapping = true;
+
     try {
       final fetchedSessions = await _apiService.fetchSessions();
 
@@ -76,12 +93,25 @@ class ChatController extends GetxController {
       }
     } catch (e) {
       debugPrint('Bootstrap failed: $e');
+    } finally {
+      _isBootstrapping = false;
     }
   }
 
   // -------------------------
   // Session handling
   // -------------------------
+  void _handleAuthStateChanged(String? userId) {
+    if (userId == null) {
+      sessions.clear();
+      messages.clear();
+      selectedSessionId.value = null;
+      return;
+    }
+
+    _bootstrap();
+  }
+
   Future<void> createNewChat() async {
     try {
       final session = await _apiService.createSession();
@@ -313,6 +343,7 @@ class ChatController extends GetxController {
 
   @override
   void onClose() {
+    _authWorker?.dispose();
     _searchDebounce?.cancel();
     messageController
       ..removeListener(_handleInputChanged)

@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:multimodel_chatbot/screens/auth/controller/auth_controller.dart';
 
 import '../../controller/chat_controller.dart';
 import 'sidebar_chat_tile.dart';
 import 'sidebar_new_chat_button.dart';
 
 class ChatSidebar extends GetView<ChatController> {
-  const ChatSidebar({super.key});
+  ChatSidebar({super.key});
+
+  final auth = Get.find<AuthController>();
 
   @override
   Widget build(BuildContext context) {
@@ -68,6 +71,25 @@ class ChatSidebar extends GetView<ChatController> {
                   },
                 );
               }),
+            ),
+
+            InkWell(
+              onTap: auth.logout,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.logout, color: Colors.white70, size: 20),
+                  SizedBox(width: 6),
+                  Text(
+                    " Logout",
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         );

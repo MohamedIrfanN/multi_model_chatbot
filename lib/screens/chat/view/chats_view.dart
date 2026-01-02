@@ -81,7 +81,7 @@ class ChatScreenView extends GetView<ChatController> {
                                   left: isOpen ? 0 : -compactDrawerWidth - 32,
                                   child: SizedBox(
                                     width: compactDrawerWidth,
-                                    child: const ChatSidebar(),
+                                    child: ChatSidebar(),
                                   ),
                                 ),
                               ],
@@ -101,7 +101,7 @@ class ChatScreenView extends GetView<ChatController> {
                                     child: Align(
                                       alignment: Alignment.centerLeft,
                                       widthFactor: isOpen ? 1 : 0,
-                                      child: const ChatSidebar(),
+                                      child: ChatSidebar(),
                                     ),
                                   ),
                                 );

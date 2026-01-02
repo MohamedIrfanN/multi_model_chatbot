@@ -1,24 +1,19 @@
 import base64
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.core.config import settings
 from app.db.database import get_db
 from app.db import crud
+from app.api.dependencies import get_current_user_id
 from app.schemas.chat import CreateSessionRequest, SessionOut, MessageOut
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
 
-def _get_user_id(x_user_id: str | None):
-    # single user now, multi-user later via auth
-    return x_user_id or settings.DEFAULT_USER_ID
-
 @router.get("", response_model=list[SessionOut])
 def list_sessions(
     db: Session = Depends(get_db),
-    x_user_id: str | None = Header(default=None),
+    user_id: str = Depends(get_current_user_id),
 ):
-    user_id = _get_user_id(x_user_id)
     crud.ensure_user(db, user_id)
     sessions = crud.list_sessions(db, user_id)
     return [SessionOut(id=s.id, title=s.title) for s in sessions]
@@ -27,9 +22,8 @@ def list_sessions(
 def create_session(
     body: CreateSessionRequest,
     db: Session = Depends(get_db),
-    x_user_id: str | None = Header(default=None),
+    user_id: str = Depends(get_current_user_id),
 ):
-    user_id = _get_user_id(x_user_id)
     crud.ensure_user(db, user_id)
     s = crud.create_session(db, user_id, title=body.title or "New chat")
     return SessionOut(id=s.id, title=s.title)
@@ -38,9 +32,8 @@ def create_session(
 def get_messages(
     session_id: str,
     db: Session = Depends(get_db),
-    x_user_id: str | None = Header(default=None),
+    user_id: str = Depends(get_current_user_id),
 ):
-    user_id = _get_user_id(x_user_id)
     crud.ensure_user(db, user_id)
 
     session = crud.get_session(db, user_id, session_id)
