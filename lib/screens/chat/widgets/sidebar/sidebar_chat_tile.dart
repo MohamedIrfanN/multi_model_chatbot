@@ -45,25 +45,17 @@ class SidebarChatTile extends StatelessWidget {
               ),
 
               // ── Fixed gap ──────────────────────
-              const SizedBox(width: 8),
+              const SizedBox(width: 12),
 
               // ── Delete button (FIXED SIZE) ─────
               SizedBox(
-                width: 32,
-                height: 32,
                 child: GestureDetector(
                   onTap: () => _confirmDelete(context, controller),
                   behavior: HitTestBehavior.opaque,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.08),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(
-                      Icons.delete_outline,
-                      size: 18,
-                      color: Colors.white70,
-                    ),
+                  child: const Icon(
+                    Icons.delete_outline,
+                    size: 18,
+                    color: Colors.white70,
                   ),
                 ),
               ),

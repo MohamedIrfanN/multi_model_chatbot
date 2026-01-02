@@ -64,7 +64,6 @@ class ChatSidebar extends GetView<ChatController> {
                       session: session,
                       isSelected: isSelected,
                       onTap: () => controller.selectChat(session.id),
-                      onDelete: () => controller.deleteChat(session.id),
                     );
                   },
                 );
