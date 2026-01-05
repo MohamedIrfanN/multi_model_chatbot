@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../auth/controller/auth_controller.dart';
+import '../../auth/services/user_api_service.dart';
 import '../models/chat_message.dart';
 import '../models/chat_session.dart';
 import '../models/chat_model.dart';
@@ -32,10 +33,13 @@ class ChatController extends GetxController {
 
   // API
   final ChatApiService _apiService = ChatApiService();
+  final UserApiService _userApi = UserApiService();
 
   final isSidebarOpen = true.obs;
   final isCompactMode = false.obs;
   final selectedModel = ChatModel.gpt4oMini.obs;
+  final totalTokens = 0.obs;
+  final modelTokens = <String, int>{}.obs;
 
   // Sidebar search UI state
   final isSearchOpen = false.obs;
@@ -70,6 +74,30 @@ class ChatController extends GetxController {
     _handleAuthStateChanged(_authController.userId.value);
   }
 
+  Future<void> loadTokenUsage() async {
+    try {
+      final data = await _userApi.fetchTokenUsage();
+      final total = data['total'];
+      totalTokens.value =
+          total is num ? total.toInt() : int.tryParse('$total') ?? 0;
+
+      final rawMap = data['by_model'];
+      if (rawMap is Map) {
+        final normalized = <String, int>{};
+        rawMap.forEach((key, value) {
+          final asInt =
+              value is num ? value.toInt() : int.tryParse('$value') ?? 0;
+          normalized['$key'] = asInt;
+        });
+        modelTokens.assignAll(normalized);
+      } else {
+        modelTokens.clear();
+      }
+    } catch (e) {
+      debugPrint('Failed to load token usage: $e');
+    }
+  }
+
   // -------------------------
   // Startup: restore last chat
   // -------------------------
@@ -91,6 +119,7 @@ class ChatController extends GetxController {
         sessions.add(session);
         await selectChat(session.id);
       }
+      await loadTokenUsage();
     } catch (e) {
       debugPrint('Bootstrap failed: $e');
     } finally {
@@ -106,6 +135,8 @@ class ChatController extends GetxController {
       sessions.clear();
       messages.clear();
       selectedSessionId.value = null;
+      totalTokens.value = 0;
+      modelTokens.clear();
       return;
     }
 
@@ -203,6 +234,7 @@ class ChatController extends GetxController {
         final current = messages[assistantIndex];
         messages[assistantIndex] = current.copyWith(text: current.text + chunk);
       }
+      unawaited(loadTokenUsage());
     } catch (e) {
       final current = messages[assistantIndex];
       messages[assistantIndex] = current.copyWith(

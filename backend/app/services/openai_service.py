@@ -1,7 +1,7 @@
 from openai import OpenAI
 from app.core.config import settings
 import base64
-from typing import Iterable
+from typing import Iterator
 
 client = OpenAI(api_key=settings.OPENAI_API_KEY)
 
@@ -20,7 +20,7 @@ SYSTEM_PROMPT = "You are a helpful AI assistant."
 def stream_assistant_reply(
     messages_for_openai: list[dict],
     model: str | None = None,
-) -> Iterable[str]:
+) -> tuple[Iterator[str], dict[str, int]]:
     """
     Streams text-only assistant replies.
 
@@ -33,13 +33,38 @@ def stream_assistant_reply(
         model=model,
         messages=messages_for_openai,
         stream=True,
+        stream_options={"include_usage": True},
     )
 
-    for chunk in resp:
-        delta = chunk.choices[0].delta
-        if delta and delta.content:
-            yield delta.content
+    usage: dict[str, int] = {
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "total_tokens": 0,
+    }
 
+    def iterator():
+        for chunk in resp:
+            if not chunk.choices:
+                chunk_usage = getattr(chunk, "usage", None)
+                if chunk_usage is not None:
+                    usage["prompt_tokens"] = getattr(
+                        chunk_usage, "prompt_tokens", 0
+                    ) or 0
+                    usage["completion_tokens"] = getattr(
+                        chunk_usage, "completion_tokens", 0
+                    ) or 0
+                    usage["total_tokens"] = getattr(
+                        chunk_usage, "total_tokens", 0
+                    ) or 0
+                continue
+
+            delta = chunk.choices[0].delta
+            if delta and delta.content:
+                yield delta.content
+
+    return iterator(), usage
+
+    
 
 # -------------------------
 # Rolling summary (unchanged)
@@ -81,7 +106,7 @@ def summarize_chat(previous_summary: str, recent_messages_text: str) -> str:
 def stream_vision_reply(
     messages_for_openai: list[dict],
     model: str | None = None,
-) -> Iterable[str]:
+) -> tuple[Iterator[str], dict[str, int]]:
     """
     Streams vision + text replies.
 
@@ -94,12 +119,36 @@ def stream_vision_reply(
         model=model,
         messages=messages_for_openai,
         stream=True,
+        stream_options={"include_usage": True},
     )
 
-    for chunk in resp:
-        delta = chunk.choices[0].delta
-        if delta and delta.content:
-            yield delta.content
+    usage: dict[str, int] = {
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "total_tokens": 0,
+    }
+
+    def iterator():
+        for chunk in resp:
+            if not chunk.choices:
+                chunk_usage = getattr(chunk, "usage", None)
+                if chunk_usage is not None:
+                    usage["prompt_tokens"] = getattr(
+                        chunk_usage, "prompt_tokens", 0
+                    ) or 0
+                    usage["completion_tokens"] = getattr(
+                        chunk_usage, "completion_tokens", 0
+                    ) or 0
+                    usage["total_tokens"] = getattr(
+                        chunk_usage, "total_tokens", 0
+                    ) or 0
+                continue
+
+            delta = chunk.choices[0].delta
+            if delta and delta.content:
+                yield delta.content
+
+    return iterator(), usage
 
 
 # -------------------------

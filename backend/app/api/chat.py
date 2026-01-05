@@ -88,13 +88,15 @@ def chat_stream(
         openai_messages.append({"role": m.role, "content": m.content})
 
     # 3️⃣ Stream assistant reply
+    assistant_stream, usage = stream_assistant_reply(
+        openai_messages,
+        model=model,
+    )
+
     def generator():
         assistant_full = ""
         try:
-            for token in stream_assistant_reply(
-                openai_messages,
-                model=model,
-            ):
+            for token in assistant_stream:
                 assistant_full += token
                 yield token
         finally:
@@ -134,6 +136,17 @@ def chat_stream(
                     )
                     new_summary = summarize_chat(prev, recent_text)
                     crud.set_summary(db, user_id, body.session_id, new_summary)
+
+            prompt_tokens = usage.get("prompt_tokens", 0)
+            completion_tokens = usage.get("completion_tokens", 0)
+            if prompt_tokens or completion_tokens:
+                crud.add_token_usage(
+                    db,
+                    user_id,
+                    model,
+                    prompt_tokens,
+                    completion_tokens,
+                )
 
     return StreamingResponse(generator(), media_type="text/plain")
 
@@ -221,13 +234,15 @@ def chat_image_stream(
             openai_messages.append({"role": m.role, "content": m.content})
 
     # 3️⃣ Stream assistant reply
+    vision_stream, usage = stream_vision_reply(
+        openai_messages,
+        model=model,
+    )
+
     def generator():
         assistant_full = ""
         try:
-            for token in stream_vision_reply(
-                openai_messages,
-                model=model,
-            ):
+            for token in vision_stream:
                 assistant_full += token
                 yield token
         finally:
@@ -268,6 +283,17 @@ def chat_image_stream(
                     )
                     new_summary = summarize_chat(prev, recent_text)
                     crud.set_summary(db, user_id, session_id, new_summary)
+
+            prompt_tokens = usage.get("prompt_tokens", 0)
+            completion_tokens = usage.get("completion_tokens", 0)
+            if prompt_tokens or completion_tokens:
+                crud.add_token_usage(
+                    db,
+                    user_id,
+                    model,
+                    prompt_tokens,
+                    completion_tokens,
+                )
 
     return StreamingResponse(generator(), media_type="text/plain")
 

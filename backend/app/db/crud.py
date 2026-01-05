@@ -301,3 +301,42 @@ def set_summary(db: Session, user_id: str, session_id: str, summary: str):
         row.updated_at = datetime.now(timezone.utc)
 
     db.commit()
+
+
+# =====================================================
+# Token usage
+# =====================================================
+
+def add_token_usage(
+    db: Session,
+    user_id: str,
+    model: str,
+    prompt_tokens: int,
+    completion_tokens: int,
+):
+    total = max(prompt_tokens, 0) + max(completion_tokens, 0)
+
+    row = (
+        db.query(models.UserTokenUsage)
+        .filter(
+            models.UserTokenUsage.user_id == user_id,
+            models.UserTokenUsage.model == model,
+        )
+        .first()
+    )
+
+    if not row:
+        row = models.UserTokenUsage(
+            user_id=user_id,
+            model=model,
+            prompt_tokens=max(prompt_tokens, 0),
+            completion_tokens=max(completion_tokens, 0),
+            total_tokens=total,
+        )
+        db.add(row)
+    else:
+        row.prompt_tokens += max(prompt_tokens, 0)
+        row.completion_tokens += max(completion_tokens, 0)
+        row.total_tokens += total
+
+    db.commit()

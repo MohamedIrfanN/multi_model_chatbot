@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, DateTime, Text, ForeignKey
+from sqlalchemy import Column, String, DateTime, Text, ForeignKey, Integer
 from sqlalchemy.sql import func
 from sqlalchemy import LargeBinary
 
@@ -52,3 +52,20 @@ class ChatSummary(Base):
     user_id = Column(String, ForeignKey("users.id"), index=True, nullable=False)
     summary = Column(Text, nullable=False, default="")
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class UserTokenUsage(Base):
+    __tablename__ = "user_token_usage"
+
+    user_id = Column(String, ForeignKey("users.id"), primary_key=True)
+    model = Column(String, primary_key=True)
+
+    prompt_tokens = Column(Integer, nullable=False, default=0)
+    completion_tokens = Column(Integer, nullable=False, default=0)
+    total_tokens = Column(Integer, nullable=False, default=0)
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
